@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace FrontierDispatch.Core
 {
@@ -35,7 +36,77 @@ namespace FrontierDispatch.Core
         {
             // TODO: implement Dijkstra using your prepared world representation
             // and MinPriorityQueue<T>.
-            throw new NotImplementedException();
+            //throw new NotImplementedException();
+
+            // Edge case: If start and goal are the same, return zero-cost route immediately.
+            if (startLocationId == goalLocationId) {
+                // Verify if the location actually exists in the world
+                if (_world.GetLocationById(startLocationId) == null) {
+                    return new RouteResult(false, Array.Empty<int>(), 0, 0);
+                }
+
+                return new RouteResult(true, new[]{startLocationId}, 0, 0);
+            }
+
+            MinPriorityQueue<int> pq = new MinPriorityQueue<int>();
+            Dictionary<int, int> distances = new Dictionary<int, int>();
+            Dictionary<int, int> previous = new Dictionary<int, int>();
+            HashSet<int> visited = new HashSet<int>();
+
+            distances[startLocationId] = 0;
+            pq.Enqueue(startLocationId, 0);
+
+            int expandedCount = 0;
+            bool found = false;
+
+            while (pq.Count > 0) {
+                int currentId = pq.Dequeue();
+
+                // If we've already processed this node with a shorter or equal distance, skip
+                if (!visited.Add(currentId)) {
+                    continue;
+                }
+
+                expandedCount++;
+
+                // If we reached the goal, we can terminate early
+                if (currentId == goalLocationId) {
+                    found = true;
+                    break;
+                }
+
+                int currentDist = distances[currentId];
+
+                // Iterate through outgoing connections using our optimized WorldData method
+                var outgoing = _world.GetOutgoing(currentId);
+                foreach (var connection in outgoing) {
+                    int neighborId = connection.ToLocationId;
+                    int newDist = currentDist + connection.TravelCost;
+
+                    if (!distances.TryGetValue(neighborId, out int existingDist) || newDist < existingDist)
+                    {
+                        distances[neighborId] = newDist;
+                        previous[neighborId] = currentId;
+                        pq.Enqueue(neighborId, newDist);
+                    }
+                }
+            }
+
+            if (!found) {
+                return new RouteResult(false, Array.Empty<int>(), int.MaxValue, expandedCount);
+            }
+
+            // Reconstruct path from goal back to start
+            var path = new List<int>();
+            int curr = goalLocationId;
+            while (curr != startLocationId) {
+                path.Add(curr);
+                curr = previous[curr];
+            }
+            path.Add(startLocationId);
+            path.Reverse();
+
+            return new RouteResult(true, path, distances[goalLocationId], expandedCount);
         }
     }
 }
