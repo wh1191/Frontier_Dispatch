@@ -19,11 +19,11 @@ namespace FrontierDispatch.Core
             _locations = new List<Location>(locations).ToArray();
             _connections = new List<Connection>(connections).ToArray();
 
-            // Map location IDs directly to Location objects for robust O(1) lookup
+            // Map location IDs directly to Location objects for O(1) lookup
             _locationMap = _locations.ToDictionary(loc => loc.Id);
 
             // Pre-group outgoing connections for O(1) access
-            _outgoingConnections = new Dictionary<int, List<Connection>>();
+            _outgoingConnections = new Dictionary<int, List<Connection>>(); 
             foreach (var connection in _connections) {
                 if (!_outgoingConnections.TryGetValue(connection.FromLocationId, out var list)) {
                     list = new List<Connection>();
