@@ -82,11 +82,12 @@ during search.
 
 
 ## 4. Complexity
+*Note: Time and Space Complexity describe runtime and memory growth in terms of vertices (V), edges (E), and a node's outgoing edge count (k, at most V - 1 on simple graphs), across persistent graph structures and per-search state.*
 
 | Operation | Your representation/algorithm | Time Complexity | Space Complexity | Notes |
 | :--- | :--- | :--- | :--- | :--- |
 | Find location by ID | `Dictionary<int, Location>` (`_locationMap`) | O(1) average | O(V) | Direct ID lookup via `TryGetValue` |
-| Get outgoing connections | Pre-grouped `Dictionary<int, List<Connection>>` (`_outgoingConnections`) | O(1) average + O(k) | O(E) | Returns node's outgoing list (k = outgoing edge count, at most V-1 on simple graphs) |
+| Get outgoing connections | Pre-grouped `Dictionary<int, List<Connection>>` (`_outgoingConnections`) | O(1) average + O(k) | O(E) | Returns node's outgoing list |
 | Priority queue Enqueue | Binary min-heap (`Enqueue` + `SiftUp` on `List<Entry>`) | O(log V) amortized / O(log E) worst | O(V) to O(E) | Appends entry and sifts up; lazy deletion can keep up to O(E) entries |
 | Priority queue Dequeue-min | Binary min-heap (`Dequeue` + `SiftDown` on `List<Entry>`) | O(log V) amortized / O(log E) worst | O(V) to O(E) | Removes root, moves last entry to root, and sifts down |
 | Priority queue Peek | Binary min-heap (`Peek` on `List<Entry>`) | O(1) | O(1) | Returns root element (`_heap[0]`) without removing it |
@@ -160,14 +161,22 @@ architectural structuring, and refining heuristic admissibility logic.
 
 **Heuristic & Safety:**<br> 
 Implemented A\* with a Manhattan distance heuristic (`h(n) = |x_1 - x_2| + |y_1 - y_2|`)
-computed from `WorldPosition` coordinates to the goal. It is **admissible**, meaning it
-never overestimates the true remaining travel cost to the goal—because axis-aligned grid
+computed from `WorldPosition` coordinates to the goal. It is admissible, meaning it
+never overestimates the true remaining travel cost to the goal, because axis-aligned grid
 distance acts as a safe lower bound, preserving optimal least-cost paths.
 
 **Traversal Constraints:**<br> 
-Added support for dynamic node/connection avoidance via an optional `isBlocked` predicate.
+Added an optional `Func<int, bool> isBlocked` predicate to dynamically skip blocked
+locations during search, allowing A\* to route around obstacles or return no path
+when no valid route remains.
 
-**Comparative Analysis:**
+**Memory & Allocations:**<br>
+Both algorithms share the same core search structures (`g`-score/priority queue state,
+visited tracking, and predecessor pointers), keeping peak memory comparable. Computing
+Manhattan distance and evaluating `isBlocked` introduces negligible overhead without
+adding extra per step heap allocations.
+
+**Comparative Analysis:**<br>  
 Compared Dijkstra and A\* across world scenarios:
 
 | Algorithm | Result Found | Optimal Cost | Nodes Expanded | Execution Time |
