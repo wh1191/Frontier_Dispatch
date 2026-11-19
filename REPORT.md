@@ -178,7 +178,7 @@ Manhattan distance and evaluating `isBlocked` introduces negligible overhead wit
 adding extra per step heap allocations.
 
 **Comparative Analysis:**<br>  
-Compared Dijkstra and A\* across world scenarios:
+*Compared Dijkstra and A\* across world scenarios.*
 
 | Algorithm | Result Found | Optimal Cost | Nodes Expanded | Execution Time |
 | :--- | :--- | :--- | :--- | :--- |
