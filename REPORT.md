@@ -82,7 +82,7 @@ during search.
 
 
 ## 4. Complexity
-*Note: Time and space complexity describe runtime and memory growth in terms of vertices (V), edges (E), and a node's outgoing edge count (k, at most V - 1 on simple graphs) across persistent graph structures and per-search state.* 
+*Note: Time and space complexity describe runtime and memory growth in terms of vertices (V), edges (E), and a node's outgoing edge count (k, at most V - 1 on simple graphs) across persistent graph structures and per-search state.*<br>
 *average reflects typical hash/lookup behavior, amortized reflects per-operation cost averaged over a sequence (for example if a list resizes), and worst reflects upper-bound/degenerate cases.*
 
 | Operation | Your representation/algorithm | Time Complexity | Space Complexity | Notes |
