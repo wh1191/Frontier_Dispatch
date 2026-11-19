@@ -162,13 +162,18 @@ architectural structuring, and refining heuristic admissibility logic.
 
 <!-- Only if attempting VG: heuristic, traversal constraints, correctness, and Dijkstra/A\* comparison. -->
 
-**Heuristic & Safety:**<br> 
+**Heuristic & Safety:**<br>
 Implemented A\* with a Manhattan distance heuristic (`h(n) = |x_1 - x_2| + |y_1 - y_2|`)
-computed from `WorldPosition` coordinates to the goal. It is admissible, meaning it
-never overestimates the true remaining travel cost to the goal, because axis-aligned grid
-distance acts as a safe lower bound, preserving optimal least-cost paths.
+computed from `WorldPosition` coordinates to the goal. It is admissible when `h(n) <= h*(n)` 
+holds for every node `n`, where `h(n)` is the estimated remaining cost from `n` to the 
+goal and `h*(n)` is the true minimum remaining cost to the goal. Because A\* never 
+overestimates what remains, it will not hide or bypass a cheaper path behind an 
+inflated estimate, preserving optimal least-cost paths. Reaching the goal requires 
+at least `|x_1 - x_2| + |y_1 - y_2|` grid steps, so as long as edge `TravelCost` 
+is at least 1 per coordinate unit, Manhattan distance remains admissible 
+(whereas sub-unit `TravelCost` values could violate admissibility).
 
-**Traversal Constraints:**<br> 
+**Traversal Constraints:**<br>
 Added an optional `Func<int, bool> isBlocked` predicate to dynamically skip blocked
 locations during search, allowing A\* to route around obstacles or return no path
 when no valid route remains.
@@ -179,7 +184,7 @@ visited tracking, and predecessor pointers), keeping peak memory comparable. Com
 Manhattan distance and evaluating `isBlocked` introduces negligible overhead without
 adding extra per step heap allocations.
 
-**Comparative Analysis:**<br>  
+**Comparative Analysis:**<br>
 *Compared Dijkstra and A\* across world scenarios.*
 
 | Algorithm | Result Found | Optimal Cost | Nodes Expanded | Execution Time |
