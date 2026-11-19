@@ -171,7 +171,8 @@ overestimates what remains, it will not hide or bypass a cheaper path behind an
 inflated estimate, preserving optimal least-cost paths. Reaching the goal requires 
 at least `|x_1 - x_2| + |y_1 - y_2|` grid steps, so as long as edge `TravelCost` 
 is at least 1 per coordinate unit, Manhattan distance remains admissible 
-(whereas sub-unit `TravelCost` values could violate admissibility).
+(whereas sub-unit values less than 1, such as fractional or non-positive `TravelCost` 
+values, could violate admissibility).
 
 **Traversal Constraints:**<br>
 Added an optional `Func<int, bool> isBlocked` predicate to dynamically skip blocked
