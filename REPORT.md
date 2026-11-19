@@ -167,7 +167,7 @@ distance acts as a safe lower bound, preserving optimal least-cost paths.
 **Traversal Constraints:**<br> 
 Added support for dynamic node/connection avoidance via an optional `isBlocked` predicate.
 
-**Comparative Analysis:**<br>  
+**Comparative Analysis:**
 Compared Dijkstra and A\* across world scenarios:
 
 | Algorithm | Result Found | Optimal Cost | Nodes Expanded | Execution Time |
