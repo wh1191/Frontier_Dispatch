@@ -83,8 +83,8 @@ during search.
 
 ## 4. Complexity
 *Note: Time and space complexity describe runtime and memory growth in terms of vertices (V), edges (E), and a node's outgoing edge count (k, at most V - 1 on simple graphs) across persistent graph structures and per-search state.*<br>
-*average reflects typical hash/lookup behavior, amortized reflects per-operation cost averaged over a sequence (for example if a list resizes), and worst reflects upper-bound/degenerate cases.*<br>
-*Lazy deletion (see both Route findings (Dijkstra and A\*)) means pushing a new entry on a cheaper path and ignoring stale/outdated entries when popped instead of searching and removing them upfront. A heap can contain up to O(E) entries (E <= V \* (V - 1) on simple graphs).*
+*Average reflects typical hash/lookup behavior, Amortized reflects per-operation cost averaged over a sequence (for example if a list resizes), and Worst reflects upper-bound/degenerate cases.*<br>
+*Lazy deletion (see both Route findings (Dijkstra and A\*) and Reachability query) means pushing a new entry on a cheaper path and ignoring stale/outdated entries when popped instead of searching and removing them upfront. A heap can contain up to O(E) entries (E <= V \* (V - 1) on simple graphs).*
 *Total space is O(V + E) because search structures (up to O(V) for per-node state plus up to O(E) for lazy heap entries) and persistent graph data (O(V) locations and O(E) connections) combine linearly into O(V + E).*
 
 | Operation | Your representation/algorithm | Time Complexity | Space Complexity | Notes |
@@ -96,7 +96,7 @@ during search.
 | Priority queue Peek | Binary min-heap (`Peek` on `List<Entry>`) | O(1) | O(1) | Returns root element (`_heap[0]`) without removing it |
 | Route finding (Dijkstra) | Priority-queue search + `visited` set + predecessor map | O((V + E) log V) | O(V + E) search & total | Greedily relaxes edges by shortest path cost; has lazy deletion |
 | Route finding (A\*) | Priority-queue search + Manhattan heuristic + `isBlocked` | O((V + E) log V) | O(V + E) search & total | Orders by f(n) = g(n) + h(n) to guide search and skips blocked nodes; has lazy deletion |
-| Reachability query | Budget-pruned search (`maxTravelCost`) + `reachable` map | O((V + E) log V) worst | O(V) | Skips neighbors exceeding `maxTravelCost`; worst case visits full graph |
+| Reachability query | Budget-pruned search (`maxTravelCost`) + `reachable` map | O((V + E) log V) worst | O(V + E) search & total | Skips neighbors exceeding `maxTravelCost`; worst case visits full graph; has lazy deletion |
 | Graph initialization | `WorldData` constructor (`ToDictionary` + loop over connections) | O(V + E) | O(V + E) | Copies inputs to arrays and builds ID and outgoing-edge dictionaries once |
 
 ## 5. Correctness and testing
