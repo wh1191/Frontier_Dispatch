@@ -31,7 +31,7 @@ Retrieving outgoing connections via a linear scan over all connections, such as
 `connections.Where(c => c.FromLocationId == id)` (where `c` is the current
 `Connection` being checked) scales with the number of edges, O(E), per lookup. 
 Because pathfinding can expand up to V nodes and each expansion scans up to 
-E connections, repeated scans cost up to O(V \cdot E) in total—growing rapidly 
+E connections, repeated scans cost up to O(V \* E) in total—growing rapidly 
 on larger or denser graphs.
 
 **- What will you investigate first?**<br>
@@ -75,10 +75,11 @@ Nodes exceeding the remaining budget are pruned early, returning all reachable n
 IDs within the specified travel range.
 
 **VG Extension (A\* Search):**<br> 
-Extends route finding by incorporating an admissible heuristic estimate 
-(f(n) = g(n) + h(n)) and supporting dynamic traversal constraints 
-(`Func<int, bool> isBlocked`) to dynamically bypass forbidden locations 
-or connections.
+Extends route finding by ranking nodes using `f(n) = g(n) + h(n)`, combining accumulated
+path cost `g(n)` with an admissible heuristic estimate `h(n)` toward the goal, while
+accepting a `Func<int, bool> isBlocked` predicate to dynamically skip blocked locations
+during search.
+
 
 ## 4. Complexity
 
@@ -86,8 +87,9 @@ or connections.
 | :--- | :--- | :--- | :--- | :--- |
 | Find location by ID | `Dictionary<int, Location>` (`_locationMap`) | O(1) average | O(V) | Direct ID lookup via `TryGetValue` |
 | Get outgoing connections | Pre-grouped `Dictionary<int, List<Connection>>` (`_outgoingConnections`) | O(1) average + O(k) | O(E) | Returns node's outgoing list (k = outgoing edge count, at most V-1 on simple graphs) |
-| Priority queue enqueue | Binary min-heap (`Enqueue` + `SiftUp` on `List<Entry>`) | O(log V) amortized / O(log E) worst | O(V) to O(E) | Appends entry and sifts up; lazy deletion can keep up to O(E) entries |
-| Priority queue dequeue-min | Binary min-heap (`Dequeue` + `SiftDown` on `List<Entry>`) | O(log V) amortized / O(log E) worst | O(V) to O(E) | Removes root, moves last entry to root, and sifts down; `Peek` is O(1) |
+| Priority queue Enqueue | Binary min-heap (`Enqueue` + `SiftUp` on `List<Entry>`) | O(log V) amortized / O(log E) worst | O(V) to O(E) | Appends entry and sifts up; lazy deletion can keep up to O(E) entries |
+| Priority queue Dequeue-min | Binary min-heap (`Dequeue` + `SiftDown` on `List<Entry>`) | O(log V) amortized / O(log E) worst | O(V) to O(E) | Removes root, moves last entry to root, and sifts down |
+| Priority queue Peek | Binary min-heap (`Peek` on `List<Entry>`) | O(1) | O(1) | Returns root element (`_heap[0]`) without removing it |
 | Route finding (Dijkstra) | Priority-queue search + `visited` set + predecessor map | O((V + E) log V) | O(V) search / O(V + E) total | Greedily relaxes edges by shortest path cost and skips stale heap entries |
 | Route finding (A\*) | Priority-queue search + Manhattan heuristic + `isBlocked` | O((V + E) log V) | O(V) search / O(V + E) total | Orders by f(n) = g(n) + h(n) to guide search and skips blocked nodes |
 | Reachability query | Budget-pruned search (`maxTravelCost`) + `reachable` map | O((V + E) log V) worst | O(V) | Skips neighbors exceeding `maxTravelCost`; worst case visits full graph |
@@ -119,9 +121,10 @@ Baseline workload execution time was successfully optimized from an unoptimized 
 down to 1 ms (checksum `6267100`).
 
 **Interpretation:**<br>
-Eliminating LINQ allocations within inner loops, leveraging pre-grouped 
-connection dictionaries, and utilizing O(1) lookups removed garbage collection pressure
-and CPU instruction overhead, making graph traversal nearly instantaneous.
+Eliminating LINQ allocations (temporary objects created on the heap by LINQ queries,
+which adds extra work for the garbage collector) within inner loops, leveraging pre-grouped
+connection dictionaries, and utilizing O(1) lookups removed garbage collection overhead
+and extra CPU instructions, making graph traversal nearly instantaneous.
 
 ## 7. Development reflection
 
@@ -156,10 +159,10 @@ architectural structuring, and refining heuristic admissibility logic.
 <!-- Only if attempting VG: heuristic, traversal constraints, correctness, and Dijkstra/A\* comparison. -->
 
 **Heuristic & Safety:**<br> 
-Implemented A\* using an admissible Manhattan distance heuristic (h(n) = |x_1 - x_2| + |y_1 - y_2|
-based on `WorldPosition` coordinates). This heuristic is safe (admissible) because straight- 
-line grid distance never overestimates actual connection travel costs in the graph world, 
-guaranteeing optimal least-cost paths.
+Implemented A\* with a Manhattan distance heuristic (`h(n) = |x_1 - x_2| + |y_1 - y_2|`)
+computed from `WorldPosition` coordinates to the goal. It is **admissible**, meaning it
+never overestimates the true remaining travel cost to the goal—because axis-aligned grid
+distance acts as a safe lower bound, preserving optimal least-cost paths.
 
 **Traversal Constraints:**<br> 
 Added support for dynamic node/connection avoidance via an optional `isBlocked` predicate.
