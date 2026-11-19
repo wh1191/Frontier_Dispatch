@@ -83,7 +83,9 @@ during search.
 
 ## 4. Complexity
 *Note: Time and space complexity describe runtime and memory growth in terms of vertices (V), edges (E), and a node's outgoing edge count (k, at most V - 1 on simple graphs) across persistent graph structures and per-search state.*<br>
-*average reflects typical hash/lookup behavior, amortized reflects per-operation cost averaged over a sequence (for example if a list resizes), and worst reflects upper-bound/degenerate cases.*
+*average reflects typical hash/lookup behavior, amortized reflects per-operation cost averaged over a sequence (for example if a list resizes), and worst reflects upper-bound/degenerate cases.*<br>
+*Lazy deletion (see both Route findings (Dijkstra and A\*)) means pushing a new entry on a cheaper path and ignoring stale/outdated entries when popped instead of searching and removing them upfront. A heap can contain up to O(E) entries (E <= V \* (V - 1) on simple graphs).*
+*Total space is O(V + E) because search structures (up to O(V) for per-node state plus up to O(E) for lazy heap entries) and persistent graph data (O(V) locations and O(E) connections) combine linearly into O(V + E).*
 
 | Operation | Your representation/algorithm | Time Complexity | Space Complexity | Notes |
 | :--- | :--- | :--- | :--- | :--- |
@@ -92,8 +94,8 @@ during search.
 | Priority queue Enqueue | Binary min-heap (`Enqueue` + `SiftUp` on `List<Entry>`) | O(log V) amortized / O(log E) worst | O(V) to O(E) | Appends entry and sifts up; lazy deletion can keep up to O(E) entries |
 | Priority queue Dequeue-min | Binary min-heap (`Dequeue` + `SiftDown` on `List<Entry>`) | O(log V) amortized / O(log E) worst | O(V) to O(E) | Removes root, moves last entry to root, and sifts down |
 | Priority queue Peek | Binary min-heap (`Peek` on `List<Entry>`) | O(1) | O(1) | Returns root element (`_heap[0]`) without removing it |
-| Route finding (Dijkstra) | Priority-queue search + `visited` set + predecessor map | O((V + E) log V) | O(V) search / O(V + E) total | Greedily relaxes edges by shortest path cost and skips stale heap entries |
-| Route finding (A\*) | Priority-queue search + Manhattan heuristic + `isBlocked` | O((V + E) log V) | O(V) search / O(V + E) total | Orders by f(n) = g(n) + h(n) to guide search and skips blocked nodes |
+| Route finding (Dijkstra) | Priority-queue search + `visited` set + predecessor map | O((V + E) log V) | O(V + E) search & total | Greedily relaxes edges by shortest path cost; has lazy deletion |
+| Route finding (A\*) | Priority-queue search + Manhattan heuristic + `isBlocked` | O((V + E) log V) | O(V + E) search & total | Orders by f(n) = g(n) + h(n) to guide search and skips blocked nodes; has lazy deletion |
 | Reachability query | Budget-pruned search (`maxTravelCost`) + `reachable` map | O((V + E) log V) worst | O(V) | Skips neighbors exceeding `maxTravelCost`; worst case visits full graph |
 | Graph initialization | `WorldData` constructor (`ToDictionary` + loop over connections) | O(V + E) | O(V + E) | Copies inputs to arrays and builds ID and outgoing-edge dictionaries once |
 
