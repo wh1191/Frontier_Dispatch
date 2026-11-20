@@ -228,19 +228,28 @@ architectural structuring, and refining heuristic admissibility logic.
 <!-- Only if attempting VG: heuristic, traversal constraints, correctness, and Dijkstra/A\* comparison. -->
 
 **Heuristic & Safety:**<br>
-Implemented A\* with a Manhattan distance heuristic (`h(n) = |x_1 - x_2| + |y_1 - y_2|`)
+Implemented A\* with a Manhattan distance heuristic (`h(n) = |x_n - x_g| + |y_n - y_g|`)
 computed from `WorldPosition` coordinates to the goal. This specific heuristic was used 
 because the WorldData is presented as a 2D grid with 4-directional cardinal movement 
-(up, down, left, right).<br> 
+(up, down, left, right).<br>
 It is admissible when the condition `h(n) <= h*(n)` holds for every node `n`, where 
 `h(n)` is the estimated remaining cost from `n` to the goal and `h*(n)` is the true 
 minimum remaining cost to the goal. Because A\* never overestimates what remains, 
 it will not hide or bypass a cheaper path behind an inflated estimate, preserving 
 optimal least-cost paths.<br>
+Although Euclidean distance (`sqrt(delta x^2 + delta y^2)`) is also admissible on a 
+4-directional connected grid. Manhattan is preferred here because the world graph 
+restricts movement strictly to 4 different directions without diagonals, and 
+Manhattan provides a tighter bound that accurately reflects movement constraints, 
+resulting in more efficient pruning compared to Euclidean distance.<br>
 Reaching the goal requires at least `|x_n - x_g| + |y_n - y_g|` grid steps, so as 
 long as edge `TravelCost` is at least 1 per coordinate unit, Manhattan distance 
 remains admissible (whereas sub-unit values less than 1, such as fractional or 
-non-positive `TravelCost` values, could violate admissibility).
+non-positive `TravelCost` values, could violate admissibility).<br>
+Unlike Dijkstra, which avoids heuristic risks entirely by not using one at all
+(effectively h(n) = 0, guaranteeing absolute optimality with positive `TravelCost` 
+values), A\* may be vulnerable to a loss of optimality if a poorly designed 
+heuristic ever overestimates `h(n) > h^*(n)`.
 
 **Traversal Constraints:**<br>
 Added an optional `Func<int, bool> isBlocked` predicate to dynamically skip blocked
@@ -250,8 +259,21 @@ when no valid route remains.
 **Memory & Allocations:**<br>
 Both algorithms share the same core search structures (`g`-score/priority queue state,
 visited tracking, and predecessor pointers), keeping peak memory comparable. For A\*, 
-Computing Manhattan distance and evaluating `isBlocked` introduces negligible overhead 
-without adding extra per step heap allocations.
+computing Manhattan distance and evaluating `isBlocked` introduces negligible overhead 
+without adding extra per step heap allocations.<br>
+Both algorithms can cause memory exhaustion, because both of them must store all 
+discovered nodes in the priority queue and visited sets to guarantee optimality, they 
+can potentially run out of memory on extremely massive graphs (due to space complexity 
+O(V + E)). Although, A\* may store a tiny bit more data per node if it tracks `f(n)` 
+scores alongside `g(n)` scores, but the difference is negligible.
+
+**Handling Unreachable Goals and Trapped States:**<br>
+When a goal node is entirely blocked or unreachable, both algorithms will exhaust all 
+reachable nodes in the component before returning failure. However, Dijkstra is more 
+prone to wasting CPU cycles because it greedily and blindly searches in all directions, 
+whereas A\* initially directs its search towards the goal node before getting stuck. 
+Dijkstra will more often expand more total nodes than A\* when facing trapped 
+or unreachable states.
 
 **Comparison Results:**<br>
 *Compared Dijkstra and A\* across world scenarios.*
