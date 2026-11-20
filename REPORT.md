@@ -53,12 +53,18 @@ graph topology and spatial properties.
 **Changes & Additions:**<br> 
 Introduced a pre-grouped `Dictionary<int, List<Connection>>` in `WorldData` to map 
 location IDs directly to their outgoing edges, eliminating runtime edge filtering.
-Replaced array-indexing lookups with a `Dictionary<int, Location>` to ensure robust 
-O(1) location retrieval regardless of ID numbering or sparsity.
+Replaced array-indexing lookups with a `Dictionary<int, Location>` to ensure an 
+improved O(1) location retrieval regardless of ID numbering or sparsity.
 
-**Trade-offs:**<br>
-Trading a small one-time initialization memory overhead for instantaneous O(1) spatial
-and topological queries during pathfinding execution.
+The benchmark `RunExtended()` was also added in `Program.cs` script for displaying extended 
+amount of data for the performance analysis, also making use of necessary functions like 
+`GC.GetAllocatedBytesForCurrentThread()`, `GC.Collect()` and `GC.WaitForPendingFinalizers()`.
+The script also takes a new argument (`--extended`) to call the `RunExtended()` function. 
+
+**Loading, Preparation & Dataset Scaling Costs:**
+Optimized code trades a small one-time initialization cost (building dictionaries and 
+adjacency lists) for instantaneous O(1) spatial and topological queries during 
+pathfinding execution.
 
 ## 3. Algorithms and adaptation
 
@@ -120,15 +126,74 @@ than direct alternatives.
 
 <!-- Record reproducible before/after measurements for loading/preparation, repeated runtime work, and relevant allocation behavior. Explain what changed and why. -->
 
-**Measurements:**<br>
-Baseline workload execution time was successfully optimized from an unoptimized state
-down to 1 ms (checksum `6267100`).
+**Measurement Methodology:**<br>
+Performance and memory allocation data were gathered using an extended benchmark harness 
+(--extended flag in Program.cs):
 
-**Interpretation:**<br>
-Eliminating LINQ allocations (temporary objects created on the heap by LINQ queries,
-which adds extra work for the garbage collector) within inner loops, leveraging pre-grouped
-connection dictionaries, and utilizing O(1) lookups removed garbage collection overhead
-and extra CPU instructions, making graph traversal nearly instantaneous.
+- Execution Timing: Measured using high-resolution `System.Diagnostics.Stopwatch` timestamps
+around 5,000 query iterations.
+
+- Memory Tracking: Managed memory footprint and allocation rates were captured using 
+`System.GC.GetAllocatedBytesForCurrentThread()` immediately before and after query workload 
+execution (with garbage collection forced beforehand to isolate results).
+
+- Workload Scope: Executed 5,000 deterministic iterations across varying location IDs 
+(`int id = (i \* 997) % world.Locations.Count;`).
+
+**Comprehensive Benchmark Results (Old Code, Unoptimized, Linear Scan):**<br>
+
+| Dataset Size | Grid Dimensions | Locations (V) | Connections (E) | Creation Time | Allocation Overhead | Iterations | Elapsed Time | Query Memory Overhead | Checksum |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| Small | 5 x 5 | 25 | 80 | 2.394 ms | 14.84 KB | 5,000 | 4.137 ms | 429.73 KB | 76,000 |
+| Medium | 50 x 50 | 2,500 | 9,800 | 0.710 ms | 1,569.61 KB | 5,000 | 451.732 ms | 429.73 KB | 6,267,100 |
+| Large | 200 x 200 | 40,000 | 159,200 | 42.807 ms | 25,799,20 KB | 5,000 | 6,809.801 ms | 429.73 KB | 99,787,400 |
+
+**Comprehensive Benchmark Results (New Code, Optimized, Indexed / Dictionary):**<br>
+
+| Dataset Size | Grid Dimensions | Locations (V) | Connections (E) | Creation Time | Allocation Overhead | Iterations | Elapsed Time | Query Memory Overhead | Checksum |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| Small | 5 x 5 | 25 | 80 | 2.432 ms | 14.84 KB | 5,000 | 0.304 ms | 0.04 KB | 76,000 |
+| Medium | 50 x 50 | 2,500 | 9,800 | 1.075 ms | 1,569.61 KB | 5,000 | 0.116 ms | 0.04 KB | 6,267,100 |
+| Large | 200 x 200 | 40,000 | 159,200 | 28.343 ms | 25,799.20 KB | 5,000 | 0.736 ms | 0.04 KB | 99,787,400 |
+
+**Side-by-Side Comparison (Medium Dataset Size):**<br>
+
+| Metric | Unoptimized (Linear Scan) | Optimized (Indexed / Dictionary) | Performance Delta |
+| :--- | :--- | :--- | :--- |
+| Grid Dimensions | 50 x 50 | 50 x 50 | Identical topology |
+| Locations (V) / Connections (E) | 2,500 / 9,800 | 2,500 / 9,800 | Identical dataset |
+| Creation Time | ~0.710 ms | ~1.075 ms | Negliglible difference due to efficient O(V + E) linear pass and fast .NET heap memory allocation |
+| Dataset Allocation Overhead | 1,569.61 KB | 1,569.61 KB | Identical, but there could potentially be minor dictionary indexing overhead in the opimized code |
+| Iterations | 5,000 | 5,000 | Identical workload |
+| Elapsed Time | ~451.732 ms | ~0.116 ms | Optimized is ~3,894.2 times faster |
+| Query Memory Overhead | 429.73 KB | 0.04 KB | Eliminated query-time heap garbage |
+| Checksum | 6,267,100 | 6,267,100 | Verified Correctness Match |
+
+**Analysis of Improvements & Trade-offs:**<br>
+
+**- Massive improvemnt on Lookups with O(1):**<br>
+In the unoptimized version, every outgoing connection query performed a linear scan over 
+the edge list (O(E)), causing elapsed time to increase significantly on Medium and Large 
+datasets (there's definitely a difference in Small datasets as well, but it's not as 
+noticeable as with other datasets). Pre-grouping connections into adjacency dictionaries 
+reduced query times to sub-millisecond levels across all dataset sizes.
+
+**- Garbage Collection Relief:**<br>
+The unoptimized code's query phase generated recurring transient heap allocations by LINQ
+queries (~429 KB) due to dynamic filtering/list instantiations inside inner loops. 
+The optimized implementation dropped query memory overhead to a negligible 0.04 KB, 
+protecting the application from GC stalls (overhead, extra CPU instructions etc), making 
+graph traversal nearly instantaneous.
+
+**- The Upfront Cost Trade-off:**<br>
+Indexing introduces a one-time setup cost during dataset creation (scaling from ~14.8 KB for 
+Small up to ~25.8 MB for Large). However, this upfront allocation pays for itself instantly 
+during repeated pathfinding and reachability queries.
+
+**- Correctness Validation:**<br>
+Across all benchmark runs, the persistent Checksum remained perfectly stable, confirming that 
+the optimized lookup logic produces entirely equivalent, correct results.
+
 
 ## 7. Development reflection
 
@@ -164,15 +229,18 @@ architectural structuring, and refining heuristic admissibility logic.
 
 **Heuristic & Safety:**<br>
 Implemented A\* with a Manhattan distance heuristic (`h(n) = |x_1 - x_2| + |y_1 - y_2|`)
-computed from `WorldPosition` coordinates to the goal. It is admissible when `h(n) <= h*(n)` 
-holds for every node `n`, where `h(n)` is the estimated remaining cost from `n` to the 
-goal and `h*(n)` is the true minimum remaining cost to the goal. Because A\* never 
-overestimates what remains, it will not hide or bypass a cheaper path behind an 
-inflated estimate, preserving optimal least-cost paths. Reaching the goal requires 
-at least `|x_1 - x_2| + |y_1 - y_2|` grid steps, so as long as edge `TravelCost` 
-is at least 1 per coordinate unit, Manhattan distance remains admissible 
-(whereas sub-unit values less than 1, such as fractional or non-positive `TravelCost` 
-values, could violate admissibility).
+computed from `WorldPosition` coordinates to the goal. This specific heuristic was used 
+because the WorldData is presented as a 2D grid with 4-directional cardinal movement 
+(up, down, left, right).<br> 
+It is admissible when the condition `h(n) <= h*(n)` holds for every node `n`, where 
+`h(n)` is the estimated remaining cost from `n` to the goal and `h*(n)` is the true 
+minimum remaining cost to the goal. Because A\* never overestimates what remains, 
+it will not hide or bypass a cheaper path behind an inflated estimate, preserving 
+optimal least-cost paths.<br>
+Reaching the goal requires at least `|x_1 - x_2| + |y_1 - y_2|` grid steps, so as 
+long as edge `TravelCost` is at least 1 per coordinate unit, Manhattan distance 
+remains admissible (whereas sub-unit values less than 1, such as fractional or 
+non-positive `TravelCost` values, could violate admissibility).
 
 **Traversal Constraints:**<br>
 Added an optional `Func<int, bool> isBlocked` predicate to dynamically skip blocked
@@ -181,19 +249,25 @@ when no valid route remains.
 
 **Memory & Allocations:**<br>
 Both algorithms share the same core search structures (`g`-score/priority queue state,
-visited tracking, and predecessor pointers), keeping peak memory comparable. Computing
-Manhattan distance and evaluating `isBlocked` introduces negligible overhead without
-adding extra per step heap allocations.
+visited tracking, and predecessor pointers), keeping peak memory comparable. For A\*, 
+Computing Manhattan distance and evaluating `isBlocked` introduces negligible overhead 
+without adding extra per step heap allocations.
 
-**Comparative Analysis:**<br>
+**Comparison Results:**<br>
 *Compared Dijkstra and A\* across world scenarios.*
 
-| Algorithm | Result Found | Optimal Cost | Nodes Expanded | Execution Time |
-| :--- | :--- | :--- | :--- | :--- |
-| Dijkstra | True | 1,595 | 40,000 | ~53 ms |
-| A\* | True | 1,595 | 40,000 | ~40 ms |
+| Scenario | Start and Goal | Algorithm | Goal Found | Optimal Cost | Nodes Expanded | Execution Time |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| Small (5x5) | From 0 to 24 | Dijkstra | True | 26 | 24 | 0.019 ms |
+| Small (5x5) | From 0 to 24 | A\* | True | 26 | 24 | 0.139 ms |
+| Medium (50x50, Corner-to-Corner) | From 0 to 2,499 | Dijkstra | True | 251 | 2,316 | 1.218 ms |
+| Medium (50x50, Corner-to-Corner) | From 0 to 2,499 | A\* | True | 251 | 1,798 | 0.630 ms |
+| Medium (50x50, Mid-Target) | From 0 to 1,225 | Dijkstra | True | 129 | 631 | 0.196 ms |
+| Medium (50x50, Mid-Target) | From 0 to 1,225 | A\* | True | 129 | 498 | 0.185 ms |
+| Large (200x200, Corner-to-Corner) | From 0 to 39,999 | Dijkstra | True | 1,595 | 40,000 | 20.819 ms |
+| Large (200x200, Corner-to-Corner) | From 0 to 39,999 | A\* | True | 1,595 | 40,000 | 19.381 ms |
   
-**Interpretation:**<br>
+**Analysis & Insights:**<br>
 Both algorithms successfully computed identical optimal least-cost paths (in this case `1,595`). 
 In uniform grid-mesh topologies where edge weights and movement vectors scale evenly, 
 A\* maintains identical optimality guarantees with high computational efficiency.

@@ -3,10 +3,10 @@ using System.Collections.Generic;
 
 namespace FrontierDispatch.Core
 {
-    /// <summary>
-    /// VG Extension: Finds minimum-total-cost routes using A* search 
-    /// with support for traversal constraints and heuristic distance estimation.
-    /// </summary>
+    /**
+     * VG Extension: Finds minimum-total-cost routes using A* search 
+     * with support for traversal constraints and heuristic distance estimation.
+     */
     public sealed class AStarRouteFinder {
         private readonly WorldData _world;
 
@@ -90,7 +90,7 @@ namespace FrontierDispatch.Core
                 curr = previous[curr];
             }
             path.Add(startLocationId);
-            path.Reverse();
+            path.Reverse(); // needs to be reversed
 
             return new RouteResult(true, path, gScores[goalLocationId], expandedCount);
         }
@@ -101,7 +101,7 @@ namespace FrontierDispatch.Core
 
             if (loc == null || goal == null) return 0;
 
-            // Use absolute difference on X and Y positions as a clean grid heuristic
+            // Use absolute difference on X and Y positions as a heuristic for grids
             // X represents row
             // Y represents column
             int dx = (int)Math.Abs(loc.Position.X - goal.Position.X);

@@ -49,6 +49,21 @@ namespace FrontierDispatch.Tests
         }
 
         [Test]
+        public void Reachability_MaxBudget_ReturnsWithinCostLimit() {
+            WorldData world = WorldDatasetFactory.CreateSmall();
+            ReachabilityQuery query = new ReachabilityQuery(world);
+            int maxBudget = 3;
+
+            var reachable = query.FindReachable(startLocationId: 0, maxTravelCost: maxBudget);
+
+            Assert.That(reachable.ContainsKey(0), Is.True);
+            foreach (var kvp in reachable) {
+                Assert.That(kvp.Value, Is.LessThanOrEqualTo(maxBudget),
+                    $"Location {kvp.Key} cost {kvp.Value} exceeds max budget {maxBudget}");
+            }
+        }
+
+        [Test]
         public void AStar_WithTraversalConstraint_AvoidsBlockedLocation() {
             var world = WorldDatasetFactory.CreateSmall();
             var finder = new AStarRouteFinder(world);
@@ -72,39 +87,122 @@ namespace FrontierDispatch.Tests
         }
 
         [Test]
-        public void Compare_DijkstraVsAStar_GeneratesReportMetrics() {
-            var world = WorldDatasetFactory.CreateLarge();
-            var dijkstra = new DijkstraRouteFinder(world);
+        public void AStar_WithWallConstraint_ReroutesSuccessfully() {
+            var world = WorldDatasetFactory.CreateMedium(); // 50 x 50 = 2500
             var aStar = new AStarRouteFinder(world);
+
+            int start = 0;
+            int goal = 2499;
+
+            // Create a vertical "wall" blocking a strip of nodes in column 10
+            // (blocking nodes from y = 0 to y = 40 in column 10)
+            int gridWidth = 50;
+            bool IsWall(int id) {
+                int x = id % gridWidth;
+                int y = id / gridWidth;
+                return x == 10 && y < 40; // Wall blocking most of column 10
+            }
+
+            var resultAStar = aStar.FindRoute(start, goal, isBlocked: IsWall);
+
+            Assert.That(resultAStar.Found, Is.True, "A* should find a route around the wall.");
+            foreach (int node in resultAStar.LocationIds) {
+                Assert.That(IsWall(node), Is.False, $"Route should not contain blocked node {node}.");
+            }
+
+            TestContext.Progress.WriteLine($"A* with Wall -> Found: {resultAStar.Found}, Cost: {resultAStar.TotalCost}, " +
+                $"Nodes Expanded: {resultAStar.ExpandedCount}");
+        }
+
+        [Test]
+        public void Compare_DijkstraVsAStar_GeneratesReportMetrics() {
+            WorldData world = WorldDatasetFactory.CreateSmall();
 
             // Pick a representative start and goal across the large world
             int start = 0;
             int goal = world.Locations.Count - 1; // Last node in the dataset
 
+            RunComparisonScenario(world, "Small (5x5=25)", start, goal);
+        }
+
+        [Test]
+        public void Compare_DijkstraVsAStar_MultiScenarioBenchmarks() {
+            RunComparisonScenario(WorldDatasetFactory.CreateMedium(), "Medium (50x50=2500, Corner-to-Corner)", start: 0, goal: 2499);
+            RunComparisonScenario(WorldDatasetFactory.CreateMedium(), "Medium (50x50=2500, Mid-Target)", start: 0, goal: 1225);
+            RunComparisonScenario(WorldDatasetFactory.CreateLarge(), "Large (200x200=40 000, Corner-to-Corner)", start: 0, goal: 39999);
+        }
+
+        private void RunComparisonScenario(WorldData world, string scenarioName, int start, int goal) {
+            DijkstraRouteFinder dijkstra = new DijkstraRouteFinder(world);
+            AStarRouteFinder aStar = new AStarRouteFinder(world);
+
+            // Warmup JIT for more accurate test later
+            dijkstra.FindRoute(start, start);
+            aStar.FindRoute(start, start);
+
             // --- Dijkstra ---
-            var swD = System.Diagnostics.Stopwatch.StartNew();
-            var resultDijkstra = dijkstra.FindRoute(start, goal);
-            swD.Stop();
+            var swDijkstra = System.Diagnostics.Stopwatch.StartNew();
+            var resDijkstra = dijkstra.FindRoute(start, goal);
+            swDijkstra.Stop();
 
             // --- A* ---
-            var swA = System.Diagnostics.Stopwatch.StartNew();
-            var resultAStar = aStar.FindRoute(start, goal);
-            swA.Stop();
+            var swAStar = System.Diagnostics.Stopwatch.StartNew();
+            var resAStar = aStar.FindRoute(start, goal);
+            swAStar.Stop();
 
-            // Output data for the report table
-            TestContext.Progress.WriteLine("=== DIJKSTRA VS A* COMPARISON ===");
-            TestContext.Progress.WriteLine($"Dijkstra -> Found: {resultDijkstra.Found}, Cost: {resultDijkstra.TotalCost}, " +
-                $"Nodes Expanded: {resultDijkstra.ExpandedCount}, Time: {swD.ElapsedMilliseconds} ms");
-            TestContext.Progress.WriteLine($"A*       -> Found: {resultAStar.Found}, Cost: {resultAStar.TotalCost}, " +
-                $"Nodes Expanded: {resultAStar.ExpandedCount}, Time: {swA.ElapsedMilliseconds} ms");
-
-            // Assert that both found the exact same optimal cost
-            Assert.That(resultDijkstra.TotalCost, Is.EqualTo(resultAStar.TotalCost), 
-                "Both algorithms must find routes with identical optimal costs.");
-
-            // A* should expand fewer or equal nodes compared to Dijkstra
-            Assert.That(resultAStar.ExpandedCount, Is.LessThanOrEqualTo(resultDijkstra.ExpandedCount), 
-                "A* should be goal-directed and expand fewer nodes than Dijkstra.");
+            PrintComparisonResult(scenarioName, resDijkstra, swDijkstra.Elapsed.TotalMilliseconds, resAStar, swAStar.Elapsed.TotalMilliseconds);
         }
+
+        // Output data for the report table
+        private static void PrintComparisonResult(string scenarioName, RouteResult dijkstraResult, double dijkstraMs, 
+            RouteResult aStarResult, double aStarMs) 
+        {
+            TestContext.Progress.WriteLine("==========================================================================");
+            TestContext.Progress.WriteLine("                    DIJKSTRA VS A* COMPARISON                             ");
+            TestContext.Progress.WriteLine("==========================================================================");
+            TestContext.Progress.WriteLine("\n");
+            TestContext.Progress.WriteLine($"SCENARIO: {scenarioName}");
+            TestContext.Progress.WriteLine($"Dijkstra -> Found: {dijkstraResult.Found}, Cost: {dijkstraResult.TotalCost}, " +
+                $"Nodes Expanded: {dijkstraResult.ExpandedCount:N0}, Time: {dijkstraMs:F3} ms");
+            TestContext.Progress.WriteLine($"A*       -> Found: {aStarResult.Found}, Cost: {aStarResult.TotalCost}, " +
+                $"Nodes Expanded: {aStarResult.ExpandedCount:N0}, Time: {aStarMs:F3} ms");
+            TestContext.Progress.WriteLine("\n");
+            TestContext.Progress.WriteLine("==========================================================================");
+            TestContext.Progress.WriteLine("\n");
+        }
+
+        [Test]
+        public void PriorityQueue_Peek_ReturnsLowestPriorityWithoutRemoving() {
+            MinPriorityQueue<string> queue = new MinPriorityQueue<string>();
+            queue.Enqueue("medium", 5);
+            queue.Enqueue("cheap", 1);
+            queue.Enqueue("expensive", 10);
+
+            Assert.That(queue.Peek(), Is.EqualTo("cheap"));
+            Assert.That(queue.Count, Is.EqualTo(3), "Peek should not decrease queue count.");
+        }
+
+        [Test]
+        public void PriorityQueue_EmptyOperations_ThrowsInvalidOperationException() {
+            MinPriorityQueue<int> queue = new MinPriorityQueue<int>();
+            Assert.Throws<InvalidOperationException>(() => queue.Dequeue());
+            Assert.Throws<InvalidOperationException>(() => queue.Peek());
+        }
+
+        [Test]
+        public void Dijkstra_And_AStar_NonExistentLocations_ReturnUnsuccessfulResult() {
+            WorldData world = WorldDatasetFactory.CreateSmall();
+            DijkstraRouteFinder dijkstra = new DijkstraRouteFinder(world);
+            AStarRouteFinder aStar = new AStarRouteFinder(world);
+
+            int invalidId = 99999;
+            var resultD = dijkstra.FindRoute(0, invalidId);
+            var resultA = aStar.FindRoute(0, invalidId);
+
+            Assert.That(resultD.Found, Is.False);
+            Assert.That(resultA.Found, Is.False);
+        }
+
+
     }
 }

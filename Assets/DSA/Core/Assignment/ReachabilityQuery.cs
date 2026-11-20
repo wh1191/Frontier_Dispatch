@@ -57,8 +57,8 @@ namespace FrontierDispatch.Core
                 int currentId = pq.Dequeue();
                 int currentCost = reachable[currentId];
 
-                // If the current cost already exceeds what we recorded as optimal, skip
-                // (or if it exceeds maxTravelCost, we don't explore further from it)
+                // If the current cost already exceeds the recorded optimal cost, skip entirely
+                // (or if it exceeds maxTravelCost, do not explore further from this node)
                 if (currentCost > maxTravelCost) {
                     continue;
                 }

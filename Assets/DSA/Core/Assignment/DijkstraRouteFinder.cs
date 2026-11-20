@@ -38,7 +38,7 @@ namespace FrontierDispatch.Core
             // and MinPriorityQueue<T>.
             //throw new NotImplementedException();
 
-            // Edge case: If start and goal are the same, return zero-cost route immediately.
+            // Edge case: If start and goal are the same, return zero-cost route immediately
             if (startLocationId == goalLocationId) {
                 // Verify if the location actually exists in the world
                 if (_world.GetLocationById(startLocationId) == null) {
@@ -62,14 +62,14 @@ namespace FrontierDispatch.Core
             while (pq.Count > 0) {
                 int currentId = pq.Dequeue();
 
-                // If we've already processed this node with a shorter or equal distance, skip
+                // If this node has already been processed with a shorter or equal distance, skip it entirely
                 if (!visited.Add(currentId)) {
                     continue;
                 }
 
                 expandedCount++;
 
-                // If we reached the goal, we can terminate early
+                // If the algorithm has reached the goal, terminate early
                 if (currentId == goalLocationId) {
                     found = true;
                     break;
@@ -77,7 +77,7 @@ namespace FrontierDispatch.Core
 
                 int currentDist = distances[currentId];
 
-                // Iterate through outgoing connections using our optimized WorldData method
+                // Iterate through outgoing connections using the new optimized WorldData function
                 var outgoing = _world.GetOutgoing(currentId);
                 foreach (var connection in outgoing) {
                     int neighborId = connection.ToLocationId;
@@ -104,7 +104,7 @@ namespace FrontierDispatch.Core
                 curr = previous[curr];
             }
             path.Add(startLocationId);
-            path.Reverse();
+            path.Reverse(); // needs to be reversed
 
             return new RouteResult(true, path, distances[goalLocationId], expandedCount);
         }
