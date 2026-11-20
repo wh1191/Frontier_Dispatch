@@ -23,7 +23,11 @@ namespace FrontierDispatch.Core
                 return new RouteResult(true, new[] { startLocationId }, 0, 0);
             }
 
-            isBlocked ??= (_ => false); // Default: nothing is blocked
+            /**
+             * 'isBlocked' is an optional predicate returning 'true' if a location ID cannot be entered (blocked).
+             * Defaults to treating all locations as unblocked.
+             */
+            isBlocked ??= (locationId => false);
 
             Location? goalLocation = _world.GetLocationById(goalLocationId);
             if (goalLocation == null || isBlocked(goalLocationId) || isBlocked(startLocationId)) {
