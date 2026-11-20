@@ -264,8 +264,8 @@ without adding extra per step heap allocations.<br>
 Both algorithms can cause memory exhaustion, because both of them must store all 
 discovered nodes in the priority queue and visited sets to guarantee optimality, they 
 can potentially run out of memory on extremely massive graphs (due to space complexity 
-O(V + E)). Although, A\* may store a tiny bit more data per node if it tracks `f(n)` 
-scores alongside `g(n)` scores, but the difference is negligible.
+O(V + E)). Although, A\* may store a tiny bit more data per node if it tracks both 
+`f(n)` and `g(n)` scores, but the difference is negligible.
 
 **Handling Unreachable Goals and Trapped States:**<br>
 When a goal node is entirely blocked or unreachable, both algorithms will exhaust all 
