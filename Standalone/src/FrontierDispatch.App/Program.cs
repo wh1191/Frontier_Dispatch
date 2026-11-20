@@ -95,7 +95,7 @@ static void BenchmarkDataset(string name, int width, int height, int iterations)
     long creationAllocatedBytes = GC.GetAllocatedBytesForCurrentThread() - initialAllocatedBytes;
 
     // Measure Query Workload
-    var queries = new WorldQueries(world);
+    WorldQueries queries = new WorldQueries(world);
     int checksum = 0;
 
     // Force GC again to isolate query-phase memory allocation
@@ -141,7 +141,7 @@ static void BenchmarkPreset(string name, WorldData world, int iterations) {
 
     // Since the dataset is already created when passed into this method, 
     // measure only the query workload performance and query-phase memory.
-    var queries = new WorldQueries(world);
+    WorldQueries queries = new WorldQueries(world);
     int checksum = 0;
 
     long queryInitialBytes = GC.GetAllocatedBytesForCurrentThread();

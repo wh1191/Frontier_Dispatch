@@ -130,6 +130,7 @@ namespace FrontierDispatch.Tests
             RunComparisonScenario(WorldDatasetFactory.CreateMedium(), "Medium (50x50=2500, Corner-to-Corner)", start: 0, goal: 2499);
             RunComparisonScenario(WorldDatasetFactory.CreateMedium(), "Medium (50x50=2500, Mid-Target)", start: 0, goal: 1225);
             RunComparisonScenario(WorldDatasetFactory.CreateLarge(), "Large (200x200=40 000, Corner-to-Corner)", start: 0, goal: 39999);
+            RunComparisonScenario(WorldDatasetFactory.CreateLarge(), "Large (200x200=40 000, A* Pruning)", start: 10000, goal: 26967);
         }
 
         private void RunComparisonScenario(WorldData world, string scenarioName, int start, int goal) {

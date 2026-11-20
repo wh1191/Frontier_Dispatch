@@ -16,8 +16,9 @@ namespace FrontierDispatch.Core
 
         public RouteResult FindRoute(int startLocationId, int goalLocationId, Func<int, bool>? isBlocked = null) {
             if (startLocationId == goalLocationId) {
-                if (_world.GetLocationById(startLocationId) == null)
+                if (_world.GetLocationById(startLocationId) == null) {
                     return new RouteResult(false, Array.Empty<int>(), 0, 0);
+                }
 
                 return new RouteResult(true, new[] { startLocationId }, 0, 0);
             }

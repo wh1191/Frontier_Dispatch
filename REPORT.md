@@ -2,7 +2,7 @@
 
 <!-- Keep this concise and specific to your implementation. -->
 
-## 1. Initial analysis
+## 1. Initial Analysis
 
 **- How are locations and connections represented in the baseline?**<br>
 Locations (`Location`) are represented as objects containing the following:<br>
@@ -42,7 +42,7 @@ ensure location ID lookups with a O(1) time complexity, and thereby eliminating 
 scan bottlenecks before implementing the pathfinding algorithms.
 
 
-## 2. Data representation
+## 2. Data Representation
 
 <!-- Describe important changes/retained choices, operations affected, and time/memory trade-offs. -->
 
@@ -66,7 +66,7 @@ Optimized code trades a small one-time initialization cost (building dictionarie
 adjacency lists) for instantaneous O(1) spatial and topological queries during 
 pathfinding execution.
 
-## 3. Algorithms and adaptation
+## 3. Algorithms and Adaptation
 
 <!-- Explain your route finder at a useful high level and how the travel-budget query adapts the same ideas. -->
 
@@ -105,7 +105,7 @@ during search.
 | Reachability query | Budget-pruned search (`maxTravelCost`) + `reachable` map | O((V + E) log V) worst | O(V + E) search & total | Skips neighbors exceeding `maxTravelCost`; worst case visits full graph; has lazy deletion |
 | Graph initialization | `WorldData` constructor (`ToDictionary` + loop over connections) | O(V + E) | O(V + E) | Copies inputs to arrays and builds ID and outgoing-edge dictionaries once |
 
-## 5. Correctness and testing
+## 5. Correctness and Testing
 
 <!-- Important tests/edge cases and what they demonstrate. -->
 
@@ -122,7 +122,7 @@ Validated that the custom priority queue extracts minimum-cost elements correctl
 ensuring least-cost paths are found even when they require traversing more edges 
 than direct alternatives.
 
-## 6. Performance investigation
+## 6. Performance Investigation
 
 <!-- Record reproducible before/after measurements for loading/preparation, repeated runtime work, and relevant allocation behavior. Explain what changed and why. -->
 
@@ -195,7 +195,7 @@ Across all benchmark runs, the persistent Checksum remained perfectly stable, co
 the optimized lookup logic produces entirely equivalent, correct results.
 
 
-## 7. Development reflection
+## 7. Development Reflection
 
 <!-- Describe one bug, wrong assumption, failed approach, or surprising result and how you investigated it. -->
 
@@ -213,7 +213,7 @@ Replaced array indexing with a `Dictionary<int, Location>` map built during
 initialization. This decoupled internal storage order from location ID identifiers while
 preserving O(1) performance, immediately resolving the test failure.
 
-## 8. Tools and AI assistance
+## 8. Tools and AI Assistance
 
 <!-- Briefly describe relevant assistance, if any. -->
 
@@ -223,7 +223,7 @@ implementation process. These include debugging nullable reference annotations,
 architectural structuring, and refining heuristic admissibility logic.
 
 
-## 9. VG extension
+## 9. VG Extension
 
 <!-- Only if attempting VG: heuristic, traversal constraints, correctness, and Dijkstra/A\* comparison. -->
 
@@ -237,7 +237,7 @@ It is admissible when the condition `h(n) <= h*(n)` holds for every node `n`, wh
 minimum remaining cost to the goal. Because A\* never overestimates what remains, 
 it will not hide or bypass a cheaper path behind an inflated estimate, preserving 
 optimal least-cost paths.<br>
-Reaching the goal requires at least `|x_1 - x_2| + |y_1 - y_2|` grid steps, so as 
+Reaching the goal requires at least `|x_n - x_g| + |y_n - y_g|` grid steps, so as 
 long as edge `TravelCost` is at least 1 per coordinate unit, Manhattan distance 
 remains admissible (whereas sub-unit values less than 1, such as fractional or 
 non-positive `TravelCost` values, could violate admissibility).
@@ -266,8 +266,28 @@ without adding extra per step heap allocations.
 | Medium (50x50, Mid-Target) | From 0 to 1,225 | A\* | True | 129 | 498 | 0.185 ms |
 | Large (200x200, Corner-to-Corner) | From 0 to 39,999 | Dijkstra | True | 1,595 | 40,000 | 20.819 ms |
 | Large (200x200, Corner-to-Corner) | From 0 to 39,999 | A\* | True | 1,595 | 40,000 | 19.381 ms |
+| Large (200x200, A\* Pruning) | From 10,000 to 26,967 | Dijkstra | True | 1,167 | 35,490 | 12.347 ms |
+| Large (200x200, A\* Pruning) | From 10,000 to 26,967 | A\* | True | 1,167 | 33,064 | 14.286 ms |
   
 **Analysis & Insights:**<br>
-Both algorithms successfully computed identical optimal least-cost paths (in this case `1,595`). 
-In uniform grid-mesh topologies where edge weights and movement vectors scale evenly, 
-A\* maintains identical optimality guarantees with high computational efficiency.
+- Cost Identicality (Optimality):<br>
+In every scenario, both algorithms returned identical optimal travel costs (251 on Medium, 
+1595 on Large etc). This verifies that A\*'s Manhattan heuristic is fully admissible and 
+preserves least-cost guarantees. 
+
+- Node Expansion Pruning & Heuristic Trade-Offs:<br>
+Across the Medium (Corner-to-Corner and Mid-Target) and targeted Large scenarios, 
+A\* pathfinding successfully reduced node expansions, proving its goal-directed behavior. 
+However, when pruning margins are modest, such as a minor percentage reduction on certain 
+large-scale runs (like the ~7% reduction in the A\* Pruning scenario), the CPU overhead 
+introduced by repeatedly calculating the Manhattan heuristic (`h(n)`) can occasionally 
+offset the savings from exploring fewer nodes. A\* achieves its greatest execution-time 
+advantages when it prunes a higher amount of nodes (for example 50% or more) of the search 
+space by steering away from irrelevant graph regions. So the slower execution time is most 
+likely computer science related. 
+
+- Corner-to-Corner Uniform Grid Behavior:<br>
+On the 200x200 Large grid Corner-to-Corner run, both algorithms expanded all 40,000 nodes 
+because uniform edge weight fluctuations across the entire diagonal mean multiple paths 
+share identical `f(n)` bounds.
+
